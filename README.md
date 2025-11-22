@@ -39,8 +39,8 @@ A modern, dynamic single-page jersey order form with a comprehensive administrat
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/jersey-shop.git
-cd jersey-shop
+git clone https://github.com/farisbee/jersey-order.git
+cd jersey-order
 ```
 
 ### 2. Set Up the Database

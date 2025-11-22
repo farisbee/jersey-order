@@ -1,0 +1,26 @@
+# Database configuration (users should set their own)
+# Uncomment this if you want to keep db.php private
+# db.php
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Uploaded files (if you add upload functionality)
+uploads/*
+!uploads/.gitkeep

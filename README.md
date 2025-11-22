@@ -9,24 +9,39 @@ A modern, dynamic single-page jersey order form with a comprehensive administrat
 - **Dynamic Product Selection**: Card-based selectors for jersey qualities and combo packages
 - **Real-time Price Calculation**: Live total updates based on selections
 - **Customizable Fields**: Admin-defined custom input fields (e.g., Gamertag, Sleeve Patch)
+- **Fabric Previews**: Optional fabric texture images on quality cards
 - **WhatsApp Integration**: Direct messaging for payment receipt submission
+- **Floating WhatsApp Button**: Always-accessible support button with pulse animation
 - **Email Confirmation**: Automated order confirmation emails
+- **Custom Order Numbers**: Professional order IDs (e.g., TRU-2411-7294)
+- **Size Chart Modal**: Popup size chart for easy reference
+- **Smart Disclaimers**: 
+  - Image disclaimer below carousel
+  - Delivery timeline notice above order button
 - **Responsive Design**: Fully optimized for mobile and desktop
 
 ### Admin Panel
-- **Order Management**: View all orders with detailed customer information
+- **Order Management**: View all orders with detailed customer information and custom order numbers
 - **Full CRUD Operations**:
-  - Jersey quality tiers (name, price, description)
+  - Jersey quality tiers (name, price, description, fabric image)
   - Combo packages (add-ons with price adjustments)
-  - Carousel images
+  - Carousel images (upload or URL)
   - Custom form fields
 - **Shop Configuration**: Customize title, description, and payment instructions
+- **Content Management**:
+  - Upload shop logo
+  - Upload size chart image
+  - Edit image disclaimer text
+  - Edit delivery disclaimer
+  - Customize success message (with variables)
+  - Customize WhatsApp message template
 - **Email System**:
   - Configure SMTP settings
   - Customize email templates
   - Send bulk emails to customers
 - **WhatsApp Tools**: Bulk number export and direct messaging
 - **Statistics Dashboard**: Total orders, pending payments, and revenue tracking
+- **Secure File Uploads**: Image upload system with validation (max 5MB)
 
 ## 🛠️ Requirements
 
@@ -100,22 +115,31 @@ Visit `http://localhost:8000/admin/login.php`
 ### Admin Functions
 
 1. **Dashboard** (`admin/index.php`):
-   - View all orders
+   - View all orders with custom order numbers (TRU-YYMM-XXXX format)
    - Track statistics
    - Contact customers via WhatsApp
 
-2. **Settings** (`admin/settings.php`):
-   - Configure shop title and description
-   - Manage jersey qualities and prices
-   - Add/edit combo packages
-   - Upload carousel images
-   - Create custom form fields
-
-3. **Communications** (`admin/communications.php`):
+2. **Communications** (`admin/communications.php`):
    - Configure SMTP email settings
    - Customize email templates
    - Send bulk emails to customers
    - Export WhatsApp numbers
+
+3. **Settings** (`admin/settings.php`):
+   - Configure shop title and description
+   - Manage jersey qualities and prices
+   - Upload optional fabric images for each quality
+   - Add/edit combo packages
+   - Upload carousel images
+   - Create custom form fields
+
+4. **Content Management** (`admin/content.php`):
+   - Upload shop logo
+   - Upload size chart image
+   - Edit image disclaimer text
+   - Edit delivery disclaimer
+   - Customize success message (supports variables: {name}, {order_id}, {total})
+   - Customize WhatsApp message template
 
 ## 🔧 Configuration
 
@@ -143,13 +167,21 @@ jersey-shop/
 ├── db.php                      # Database connection
 ├── index.php                   # Customer frontend
 ├── schema.sql                  # Database schema
+├── order-helper.php            # Custom order number generator
 ├── README.md                   # This file
+├── uploads/                    # Uploaded files (images, logos, charts)
+│   ├── images/                 # Carousel images
+│   ├── size-charts/            # Size chart images
+│   ├── fabrics/                # Fabric texture images
+│   └── logos/                  # Shop logos
 └── admin/
     ├── auth.php                # Authentication helper
     ├── login.php               # Admin login page
     ├── index.php               # Orders dashboard
     ├── settings.php            # Product & shop settings
-    └── communications.php      # Email & WhatsApp tools
+    ├── communications.php      # Email & WhatsApp tools
+    ├── content.php             # Content management (NEW)
+    └── upload-handler.php      # Secure file upload handler (NEW)
 ```
 
 ## 🎨 Customization
@@ -159,6 +191,12 @@ jersey-shop/
 The application currently uses **RM** (Ringgit Malaysia). To change:
 1. Search for `RM` in `index.php`, `admin/index.php`, and `admin/settings.php`
 2. Replace with your preferred currency symbol
+
+### Change Order Number Prefix
+
+Default order numbers use **TRU-YYMM-XXXX** format (e.g., TRU-2411-7294). To change the prefix:
+1. Edit `order-helper.php`
+2. Change `"TRU-{$year}{$month}-{$random}"` to your preferred prefix
 
 ### Design Customization
 

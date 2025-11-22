@@ -22,7 +22,13 @@ CREATE TABLE shop_settings (
     shop_description TEXT,
     admin_phone VARCHAR(20) DEFAULT '60123456789',
     payment_instructions TEXT,
-    email_config TEXT -- Stores SMTP host, port, user, pass, and templates
+    email_config TEXT, -- Stores SMTP host, port, user, pass, and templates
+    image_disclaimer TEXT DEFAULT 'Product images are for illustration purposes only. Actual product may vary.',
+    size_chart_image VARCHAR(255),
+    delivery_disclaimer TEXT DEFAULT 'Estimated delivery: 1 month after order closes',
+    success_message TEXT DEFAULT 'Thank you for your order! We\'ll contact you shortly.',
+    whatsapp_message_template TEXT DEFAULT 'Hi, I just placed Order #{order_id}.\nName: {name}\nTotal: {total}\nHere is my payment receipt.',
+    shop_logo VARCHAR(255)
 );
 
 INSERT INTO shop_settings (id, shop_title, shop_description, admin_phone, payment_instructions, email_config) VALUES 
@@ -35,6 +41,7 @@ CREATE TABLE qualities (
     name VARCHAR(100) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
     description TEXT,
+    fabric_image VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,
     display_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -93,6 +100,7 @@ INSERT INTO form_fields (label, field_name, field_type, options, display_order) 
 -- Orders Table
 CREATE TABLE orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    order_number VARCHAR(20) UNIQUE NOT NULL,
     customer_name VARCHAR(255) NOT NULL,
     customer_email VARCHAR(255),
     phone_number VARCHAR(20) NOT NULL,

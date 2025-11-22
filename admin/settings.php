@@ -27,12 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$_POST['name'], $_POST['price'], $_POST['description']]);
     }
     elseif (isset($_POST['update_quality'])) {
-        $stmt = $pdo->prepare("UPDATE qualities SET name = ?, price = ?, description = ? WHERE id = ?");
-        $stmt->execute([$_POST['name'], $_POST['price'], $_POST['description'], $_POST['id']]);
+        $stmt = $pdo->prepare("UPDATE qualities SET name = ?, price = ?, description = ?, fabric_image = ? WHERE id = ?");
+        $stmt->execute([$_POST['name'], $_POST['price'], $_POST['description'], $_POST['fabric_image'] ?? '', $_POST['id']]);
     }
     elseif (isset($_POST['delete_quality'])) {
         $stmt = $pdo->prepare("DELETE FROM qualities WHERE id = ?");
         $stmt->execute([$_POST['id']]);
+    }
+    elseif (isset($_POST['update_fabric'])) {
+        $stmt = $pdo->prepare("UPDATE qualities SET fabric_image = ? WHERE id = ?");
+        $stmt->execute([$_POST['fabric_path'], $_POST['quality_id']]);
     }
 
     // --- Combos ---
@@ -82,7 +86,7 @@ $images = $pdo->query("SELECT * FROM images ORDER BY display_order")->fetchAll()
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>body { font-family: 'Outfit', sans-serif; }</style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen" x-data="settingsManager()">
     
     <!-- Navigation -->
     <nav class="bg-white border-b border-gray-200 sticky top-0 z-30">
@@ -95,6 +99,7 @@ $images = $pdo->query("SELECT * FROM images ORDER BY display_order")->fetchAll()
                 <a href="index.php" class="text-gray-500 hover:text-gray-900 transition">Orders</a>
                 <a href="communications.php" class="text-gray-500 hover:text-gray-900 transition">Communications</a>
                 <a href="settings.php" class="text-blue-600 border-b-2 border-blue-600 pb-1">Settings</a>
+                <a href="content.php" class="text-gray-500 hover:text-gray-900 transition">Content</a>
                 <a href="../index.php" target="_blank" class="text-gray-400 hover:text-gray-600 flex items-center gap-1">
                     View Shop <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                 </a>
@@ -184,9 +189,14 @@ $images = $pdo->query("SELECT * FROM images ORDER BY display_order")->fetchAll()
                 <?php foreach($qualities as $q): ?>
                     <li x-data="{ edit: false }" class="bg-gray-50 p-4 rounded-xl border border-gray-100">
                         <div x-show="!edit" class="flex justify-between items-center">
-                            <div>
-                                <span class="font-bold text-gray-800"><?= htmlspecialchars($q['name']) ?></span>
-                                <p class="text-xs text-gray-500"><?= htmlspecialchars($q['description']) ?></p>
+                            <div class="flex items-center gap-3">
+                                <?php if (!empty($q['fabric_image'])): ?>
+                                    <img src="../<?= htmlspecialchars($q['fabric_image']) ?>" class="w-12 h-12 rounded-lg object-cover border border-gray-200" alt="Fabric">
+                                <?php endif; ?>
+                                <div>
+                                    <span class="font-bold text-gray-800"><?= htmlspecialchars($q['name']) ?></span>
+                                    <p class="text-xs text-gray-500"><?= htmlspecialchars($q['description']) ?></p>
+                                </div>
                             </div>
                             <div class="flex items-center gap-3">
                                 <span class="font-bold text-green-600">RM <?= $q['price'] ?></span>
@@ -205,6 +215,11 @@ $images = $pdo->query("SELECT * FROM images ORDER BY display_order")->fetchAll()
                                 <input type="number" step="0.01" name="price" value="<?= $q['price'] ?>" class="w-full border p-1 rounded text-xs">
                             </div>
                             <input type="text" name="description" value="<?= htmlspecialchars($q['description']) ?>" class="w-full border p-1 rounded text-xs">
+                            <input type="hidden" name="fabric_image" value="<?= htmlspecialchars($q['fabric_image'] ?? '') ?>">
+                            <div class="text-xs">
+                                <label class="text-gray-600">Fabric Image (optional):</label>
+                                <input type="file" @change="uploadFabric($event, <?= $q['id'] ?>)" accept="image/*" class="w-full text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-gray-100">
+                            </div>
                             <div class="flex gap-2">
                                 <button type="submit" name="update_quality" class="bg-blue-500 text-white px-2 py-1 rounded text-xs">Save</button>
                                 <button type="button" @click="edit = false" class="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs">Cancel</button>
@@ -293,5 +308,46 @@ $images = $pdo->query("SELECT * FROM images ORDER BY display_order")->fetchAll()
         </div>
 
     </div>
+    
+    <script>
+        function settingsManager() {
+            return {
+                async uploadFabric(event, qualityId) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('upload_type', 'fabric');
+                    
+                    try {
+                        const response = await fetch('upload-handler.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            // Submit form to update database
+                            const updateForm = document.createElement('form');
+                            updateForm.method = 'POST';
+                            updateForm.innerHTML = `
+                                <input type="hidden" name="update_fabric" value="1">
+                                <input type="hidden" name="quality_id" value="${qualityId}">
+                                <input type="hidden" name="fabric_path" value="${result.path}">
+                            `;
+                            document.body.appendChild(updateForm);
+                            updateForm.submit();
+                        } else {
+                            alert('Upload failed: ' + result.message);
+                        }
+                    } catch (error) {
+                        alert('Upload error: ' + error.message);
+                    }
+                }
+            }
+        }
+    </script>
 </body>
 </html>

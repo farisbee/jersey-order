@@ -1,26 +1,16 @@
-# Database configuration (users should set their own)
-# Uncomment this if you want to keep db.php private
-# db.php
-
-# IDE and Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# Uploaded files (if you add upload functionality)
+# uploads/ folder is for user-uploaded files
+# Keep the directory structure but ignore all files except .gitkeep
 uploads/*
 !uploads/.gitkeep
+!uploads/images/
+!uploads/size-charts/
+!uploads/fabrics/
+!uploads/logos/
+uploads/images/*
+!uploads/images/.gitkeep
+uploads/size-charts/*
+!uploads/size-charts/.gitkeep
+uploads/fabrics/*
+!uploads/fabrics/.gitkeep
+uploads/logos/*
+!uploads/logos/.gitkeep

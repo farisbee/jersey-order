@@ -1,5 +1,6 @@
 <?php
 require_once 'db.php';
+require_once 'order-helper.php';
 
 // Fetch Shop Settings
 $settings = $pdo->query("SELECT * FROM shop_settings WHERE id = 1")->fetch();
@@ -9,7 +10,12 @@ if(!$settings) {
         'shop_description' => 'Customize your kit like a pro.',
         'admin_phone' => '60123456789', 
         'payment_instructions' => '',
-        'email_config' => '{}'
+        'email_config' => '{}',
+        'image_disclaimer' => 'Product images are for illustration purposes only. Actual product may vary.',
+        'size_chart_image' => '',
+        'delivery_disclaimer' => 'Estimated delivery: 1 month after order closes',
+        'success_message' => 'Thank you for your order! We\'ll contact you shortly.',
+        'whatsapp_message_template' => 'Hi, I just placed Order #{order_id}.\nName: {name}\nTotal: {total}\nHere is my payment receipt.'
     ];
 }
 $emailConfig = json_decode($settings['email_config'] ?? '{}', true);
@@ -38,8 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $total = ($qualityPrice + $comboPrice) * $input['quantity'];
 
+        // Generate unique order number
+        $orderNumber = getUniqueOrderNumber($pdo);
+        
         // Insert Order
-        $stmt = $pdo->prepare("INSERT INTO orders (customer_name, customer_email, phone_number, quality_id, combo_id, jersey_number, jersey_size, quantity, total_price, custom_data, customer_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO orders (order_number, customer_name, customer_email, phone_number, quality_id, combo_id, jersey_number, jersey_size, quantity, total_price, custom_data, customer_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
         $customData = [];
         foreach ($formFields as $field) {
@@ -50,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $stmt->execute([
+            $orderNumber,
             $input['name'],
             $input['email'],
             $input['phone'],
@@ -75,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // mail($input['email'], $subject, $body); 
         }
 
-        echo json_encode(['success' => true, 'order_id' => $orderId, 'total' => $total]);
+        echo json_encode(['success' => true, 'order_number' => $orderNumber, 'order_id' => $orderId, 'total' => $total]);
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -137,6 +147,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </template>
                 </div>
             </div>
+            
+            <!-- Image Disclaimer -->
+            <?php if (!empty($settings['image_disclaimer'])): ?>
+                <div class="absolute bottom-2 left-0 right-0 text-center px-4">
+                    <p class="text-xs text-white/60 italic bg-black/20 inline-block px-3 py-1 rounded-full"><?= htmlspecialchars($settings['image_disclaimer']) ?></p>
+                </div>
+            <?php endif; ?>
         </div>
 
         <!-- Right Side: Order Form -->
@@ -182,9 +199,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div @click="form.quality_id = q.id" 
                                      :class="{'ring-2 ring-black bg-gray-50': form.quality_id == q.id, 'border border-gray-200 hover:border-gray-400': form.quality_id != q.id}"
                                      class="cursor-pointer rounded-xl p-4 flex justify-between items-center transition-all">
-                                    <div>
-                                        <span class="font-bold text-lg block" x-text="q.name"></span>
-                                        <span class="text-sm text-gray-500" x-text="q.description"></span>
+                                    <div class="flex items-center gap-3">
+                                        <template x-if="q.fabric_image">
+                                            <img :src="q.fabric_image" class="w-12 h-12 rounded-lg object-cover border border-gray-200" alt="Fabric preview">
+                                        </template>
+                                        <div>
+                                            <span class="font-bold text-lg block" x-text="q.name"></span>
+                                            <span class="text-sm text-gray-500" x-text="q.description"></span>
+                                        </div>
                                     </div>
                                     <span class="font-bold text-lg" x-text="'RM ' + q.price"></span>
                                 </div>
@@ -213,7 +235,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <!-- Size & Number -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-600 mb-1">Size</label>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-sm font-semibold text-gray-600">Size</label>
+                                <?php if (!empty($settings['size_chart_image'])): ?>
+                                    <button type="button" @click="showSizeChart = true" class="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        Size Chart
+                                    </button>
+                                <?php endif; ?>
+                            </div>
                             <div class="relative">
                                 <select x-model="form.size" class="w-full appearance-none bg-gray-50 border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-black focus:border-transparent transition outline-none">
                                     <option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option>
@@ -271,6 +301,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
             </form>
+            
+            <!-- Delivery Disclaimer -->
+            <?php if (!empty($settings['delivery_disclaimer'])): ?>
+                <div class="max-w-xl mx-auto px-6 pb-24">
+                    <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p class="text-sm text-amber-800"><?= htmlspecialchars($settings['delivery_disclaimer']) ?></p>
+                    </div>
+                </div>
+            <?php endif; ?>
 
             <!-- Sticky Footer -->
             <div class="fixed bottom-0 left-0 w-full lg:w-1/2 lg:left-auto lg:right-0 bg-white/80 backdrop-blur-md border-t border-gray-200 p-4 shadow-2xl z-20">
@@ -304,7 +344,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                 </div>
                 <h3 class="text-2xl font-extrabold text-gray-900 mb-2">Order Confirmed!</h3>
-                <p class="text-gray-500 mb-6">Thanks <span x-text="form.name" class="font-bold text-gray-800"></span>! We've received your order.</p>
+                <p class="text-gray-500 mb-2" x-html="customSuccessMessage"></p>
+                <p class="text-sm text-gray-600 font-mono mb-6">Order #<span x-text="currentOrderNumber"></span></p>
                 
                 <div class="bg-gray-50 p-5 rounded-2xl text-left text-sm text-gray-700 mb-6 whitespace-pre-wrap border border-gray-100" x-text="paymentInstructions"></div>
 
@@ -316,7 +357,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
 
+        <!-- Floating WhatsApp Button -->
+        <a href="https://wa.me/<?= $settings['admin_phone'] ?>" target="_blank" class="fixed bottom-6 right-6 bg-[#25D366] text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center z-50 hover:bg-[#128C7E] hover:scale-110 transition-all duration-300 pulse-ring">
+            <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-9.667-.272-.099-.47-.149-.669-.149-.198 0-.42.001-.643.001-.223 0-.586.085-.892.41-.307.325-1.177 1.151-1.177 2.807 0 1.657 1.207 3.258 1.375 3.482.168.224 2.376 3.628 5.757 5.088 2.288.988 2.752.791 3.247.742.495-.049 1.584-.648 1.807-1.274.223-.625.223-1.161.156-1.274z"/></svg>
+        </a>
+        
+        <!-- Size Chart Modal -->
+        <?php if (!empty($settings['size_chart_image'])): ?>
+        <div x-show="showSizeChart" x-cloak class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" x-transition.opacity @click="showSizeChart = false">
+            <div class="bg-white rounded-2xl p-4 max-w-2xl w-full shadow-2xl" @click.stop>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">Size Chart</h3>
+                    <button @click="showSizeChart = false" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <img src="<?= htmlspecialchars($settings['size_chart_image']) ?>" alt="Size Chart" class="w-full rounded-lg">
+            </div>
+        </div>
+        <?php endif; ?>
+
     </div>
+    
+    <style>
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(37, 211, 102, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+        }
+        .pulse-ring { animation: pulse-ring 2s infinite; }
+    </style>
 
     <script>
         const qualities = <?= json_encode($qualities) ?>;
@@ -325,17 +395,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const formFields = <?= json_encode($formFields) ?>;
         const adminPhone = "<?= $settings['admin_phone'] ?>";
         const paymentInstructions = `<?= $settings['payment_instructions'] ?>`;
+        const successMessageTemplate = `<?= $settings['success_message'] ?>`;
+        const whatsappTemplate = `<?= $settings['whatsapp_message_template'] ?>`;
 
         function shopApp() {
             return {
                 activeSlide: 0,
                 loading: false,
                 showSuccess: false,
+                showSizeChart: false,
                 qualities: qualities,
                 combos: combos,
                 images: images,
                 formFields: formFields,
                 paymentInstructions: paymentInstructions,
+                currentOrderNumber: '',
+                customSuccessMessage: '',
                 form: {
                     name: '',
                     email: '',
@@ -377,11 +452,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         if (result.success) {
                             const total = this.calculateTotal().toFixed(2);
-                            const text = `Hi, I just placed Order #${result.order_id}.%0A` +
-                                         `Name: ${this.form.name}%0A` +
-                                         `Total: RM ${total}%0A` +
-                                         `Here is my payment receipt.`;
-                            this.whatsappLink = `https://wa.me/${adminPhone}?text=${text}`;
+                            
+                            // Store order number
+                            this.currentOrderNumber = result.order_number;
+                            
+                            // Build custom success message
+                            this.customSuccessMessage = successMessageTemplate
+                                .replace('{name}', this.form.name)
+                                .replace('{order_id}', result.order_number)
+                                .replace('{total}', 'RM ' + total);
+                            
+                            // Build WhatsApp message
+                            const whatsappText = whatsappTemplate
+                                .replace('{order_id}', result.order_number)
+                                .replace('{name}', this.form.name)
+                                .replace('{total}', 'RM ' + total)
+                                .replace(/\\n/g, '%0A');
+                            
+                            this.whatsappLink = `https://wa.me/${adminPhone}?text=${whatsappText}`;
                             this.showSuccess = true;
                         } else {
                             alert('Error: ' + result.message);
